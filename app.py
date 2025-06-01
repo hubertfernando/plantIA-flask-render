@@ -11,9 +11,14 @@ from transformers import pipeline
 from fpdf import FPDF
 import os
 import uuid
+from dotenv import load_dotenv
+
+load_dotenv()
 
 app = Flask(__name__)
-nlp = spacy.load("pt_core_news_sm")
+nlp = spacy.load("pt_core_news_sm") 
+
+DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY")
 
 def preprocessar_texto(texto):
     termos_tecnicos = {
@@ -103,8 +108,6 @@ def verificar_relevancia(texto):
     if (len(tokens) >= 3 and count_relevante >= 2 and count_relevante >= (2 * count_irrelevante) and contexto == "relevante"):
         return True
     return False
-
-DEEPSEEK_API_KEY = "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"
 
 def obter_recomendacao_combate(doenca):
     url = "https://openrouter.ai/api/v1/chat/completions"
@@ -250,4 +253,5 @@ def download(filename):
     return send_file(caminho, as_attachment=True)
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
