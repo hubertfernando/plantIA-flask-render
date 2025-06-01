@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <title>Plant.IA</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
+    <style>
+        .mensagem.resposta p {
+            margin: 5px 0;
+            line-height: 1.4;
+        }
+        .mensagem.resposta p:first-child {
+            font-weight: bold;
+            margin-bottom: 8px;
+        }
+        .dots-animation {
+            display: inline-block;
+            width: 10px;
+            overflow: hidden;
+            vertical-align: bottom;
+        }
+    </style>
+</head>
+<body>
+    <div class="container" id="inicio">
+        <img src="/static/logobranca.png" alt="Mini Logo" class="logo-topo-direita">
+        <div class="content">
+            <img src="/static/logo2.png" alt="Logo" class="logo">
+            <h1 class="titulo">Plant.IA</h1>
+            <form id="formulario">
+                <input type="text" id="pergunta" placeholder="Olá, como posso ajudar hoje?" autocomplete="off">
+                <button type="submit"><i class="bi bi-search"></i></button>
+            </form>
+        </div>
+    </div>
+
+    <div class="chat-mode" id="chat-mode" style="display:none;">
+        <img src="/static/logobranca.png" alt="Mini Logo" class="logo-topo-direita">
+
+        <div class="chat-container">
+            <div class="chat-history" id="chat-history"></div>
+        </div>
+
+        <div class="search-bar">
+            <form id="chat-form">
+                <input type="text" id="chat-input" placeholder="Digite sua mensagem..." autocomplete="off">
+                <button type="submit"><i class="bi bi-search"></i></button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const form = document.getElementById("formulario");
+        const chatForm = document.getElementById("chat-form");
+        const inicio = document.getElementById("inicio");
+        const chatMode = document.getElementById("chat-mode");
+        const chatHistory = document.getElementById("chat-history");
+
+        function scrollToBottom() {
+            const container = document.querySelector(".chat-container");
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function switchToChat() {
+            inicio.style.display = "none";
+            chatMode.style.display = "block";
+            document.body.classList.add("modo-chat");
+        }
+
+        form.addEventListener("submit", function(e) {
+            e.preventDefault();
+            const pergunta = document.getElementById("pergunta").value.trim();
+            if (!pergunta) return;
+
+            switchToChat();
+
+            addMensagem(pergunta, true);
+            processarResposta(pergunta);
+        });
+
+        chatForm.addEventListener("submit", function(e) {
+            e.preventDefault();
+            const pergunta = document.getElementById("chat-input").value.trim();
+            if (!pergunta) return;
+
+            document.getElementById("chat-input").value = "";
+            addMensagem(pergunta, true);
+            processarResposta(pergunta);
+        });
+
+        function processarResposta(pergunta) {
+            const thinkingMsg = addMensagem("Analisando", false);
+            const dotsSpan = document.createElement("span");
+            dotsSpan.className = "dots-animation";
+            thinkingMsg.appendChild(dotsSpan);
+
+            let dots = 0;
+            const dotInterval = setInterval(() => {
+                dots = (dots + 1) % 4;
+                dotsSpan.textContent = ".".repeat(dots);
+            }, 500);
+
+            // Agora faz POST para /prever (rota correta no app.py)
+            fetch("/prever", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/x-www-form-urlencoded"
+                },
+                body: "sintomas=" + encodeURIComponent(pergunta)
+            })
+            .then(response => response.text())
+            .then(html => {
+                clearInterval(dotInterval);
+                chatHistory.removeChild(thinkingMsg);
+
+                const respostaDiv = document.createElement("div");
+                respostaDiv.className = "mensagem resposta";
+
+                // Pegamos só a div #resultado da resposta HTML
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, "text/html");
+                const resultadoHTML = doc.querySelector("#resultado")?.innerHTML || "Erro ao processar.";
+
+                respostaDiv.innerHTML = resultadoHTML;
+                chatHistory.appendChild(respostaDiv);
+                scrollToBottom();
+            })
+            .catch(error => {
+                clearInterval(dotInterval);
+                chatHistory.removeChild(thinkingMsg);
+
+                const errorDiv = document.createElement("div");
+                errorDiv.className = "mensagem resposta";
+                errorDiv.textContent = "Ocorreu um erro ao processar sua solicitação.";
+
+                chatHistory.appendChild(errorDiv);
+                console.error("Erro:", error);
+            });
+        }
+
+        function addMensagem(conteudo, isUser) {
+            const msgDiv = document.createElement("div");
+            msgDiv.className = `mensagem ${isUser ? "pergunta" : "resposta"}`;
+
+            if (typeof conteudo === "string") {
+                msgDiv.textContent = conteudo;
+            } else if (conteudo instanceof Node) {
+                msgDiv.appendChild(conteudo);
+            }
+
+            chatHistory.appendChild(msgDiv);
+            scrollToBottom();
+            return msgDiv;
+        }
+    </script>
+</body>
+</html>
